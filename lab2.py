@@ -5,7 +5,7 @@ import os
 helpMessage = """
 COMP 412, Reference Allocator (lab 2)
 Command Syntax:
-        412alloc k filename [-c] [-h] [-l] [-s] [-v]
+        ./412alloc k filename [-c] [-h] [-l] [-s] [-v]
 
 Required arguments:
         k        specifies the number of registers available to the allocator
@@ -33,7 +33,7 @@ def rename(dummy: lab1.IR_Node):
     index = curr.lineno
     
     while curr != dummy:
-        # for each operand o that curr defines
+        # for each operand o that curr defines (NOTE: op3 always corresponds to a definition (bc store's op3 is stored in op2))
         o = curr.op3
         if o.sr != -1:  
             if not srToVR.get(o.sr):
@@ -44,11 +44,11 @@ def rename(dummy: lab1.IR_Node):
             srToVR[o.sr] = None
             lu[o.sr] = float('inf')
 
-        # for each operand o that curr uses
+        # for each operand o that curr uses (NOTE: op1 and op2 always refer to uses (bc store's op3 is stored in op2))
         for i in range(1, 3):
             if i == 1:
                 o = curr.op1
-            if i == 2:
+            elif i == 2:
                 o = curr.op2
             if o.sr == -1:  # o.sr == -1 indicates empty operand
                 continue    
@@ -71,7 +71,6 @@ def rename(dummy: lab1.IR_Node):
 
         index -= 1
         curr = curr.prev
-
     
 
 def main():

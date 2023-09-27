@@ -19,15 +19,13 @@ OUTPUT_LEX, NOP_LEX, COMMA_LEX, INTO_LEX, EOF_LEX, EOL_LEX, EOL_WINDOWS_LEX = 8,
 helpMessage = """
 COMP 412, Fall 2020, Front End  (lab1_ref)
 Command Syntax:
-        ./lab1_ref [flags] filename
+        ./412fe [flags] filename
 
 Required arguments:
         filename  is the pathname (absolute or relative) to the input file
 
 Optional flags:
         -h       prints this message
-        -l       Opens log file "./Log" and starts logging.
-        -v       prints version number
 
 At most one of the following three flags:
         -s       prints tokens in token stream
@@ -86,8 +84,9 @@ class Operand:
             vr_str = str(self.vr) if self.vr != -1 else ""
         return vr_str
 
-    def setIsConstant(self, isConstant):
-        self.isConstant = isConstant
+    # def setIsConstant(self, isConstant):
+    #     self.isConstant = isConstant
+
 
     def getSR(self)->int:
         return self.sr
@@ -108,7 +107,7 @@ class IR_Node:
         self.op3 = Operand(sr3)
         # Store information regarding whether op1 is a register or a constant
         if self.opcode == LOADI_LEX or self.opcode == OUTPUT_LEX:
-            self.op1.setIsConstant(True)
+            self.op1.isConstant == True
 
     def printWithSR(self):
         return f"{LEXEMES[self.opcode]}\t{self.op1.printSR()}, {self.op2.printSR()}, {self.op3.printSR()}"
@@ -120,6 +119,11 @@ class IR_Node:
         op1Str = self.op1.printVRClean()
         op2Str = self.op2.printVRClean()
         op3Str = self.op3.printVRClean()
+        if self.opcode == STORE_LEX: # if store operation, then op2 should be printed as rhs (op3)
+            temp = op2Str
+            op2Str = op3Str
+            op3Str = temp
+
         res = f"{LEXEMES[self.opcode]}\t{op1Str}"
         if op2Str != "":
             res += ", " + op2Str
@@ -524,6 +528,9 @@ def finish_memop(line: str, p: int, lineno: str, opcode: int):
     #     return None
 
     node = IR_Node(lineno, opcode, sr1, sr2, sr3)
+    if opcode == STORE_LEX:
+        node.op2.sr = node.op3.sr   # rhs operand of store is assigned to sr2 for renaming algorithm
+        node.op3.sr = -1
     return node
 
 # return node if success, None if error
