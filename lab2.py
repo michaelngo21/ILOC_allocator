@@ -36,7 +36,8 @@ def rename(dummy: lab1.IR_Node):
         # for each operand o that curr defines (NOTE: op3 always corresponds to a definition (bc store's op3 is stored in op2))
         o = curr.op3
         if o.sr != -1:  
-            if not srToVR.get(o.sr):
+            if srToVR.get(o.sr) == None:
+                # print(f"not srToVR.get(o.sr) with o.sr = {o.sr}")
                 srToVR[o.sr] = vrName
                 vrName += 1
             o.vr = srToVR[o.sr]
@@ -55,7 +56,8 @@ def rename(dummy: lab1.IR_Node):
             if o.isConstant:
                 o.vr = o.sr # o.vr is set to o.sr. This may be inefficient, not sure.
                 continue
-            if not srToVR.get(o.sr):
+            if srToVR.get(o.sr) == None:
+                # print(f"not srToVR.get(o.sr) with o.sr = {o.sr}")
                 srToVR[o.sr] = vrName
                 vrName += 1
             o.vr = srToVR[o.sr]
@@ -69,6 +71,7 @@ def rename(dummy: lab1.IR_Node):
                 o = curr.op2
             lu[o.sr] = index
 
+        # print(f"{index}, srToVR: {srToVR}")
         index -= 1
         curr = curr.prev
     
