@@ -142,7 +142,7 @@ class IR_Node:
 # Global Variables
 sFlag = False
 noerrors = 0
-# maxSR = -1
+maxSR = -1
 
 #===============================================================================
 
@@ -373,6 +373,7 @@ def nextToken(line: str, p: int, lineno: int):
                 if sFlag: print(f"{lineno}: < {CATEGORIES[EOL]}, \"{LEXEMES[EOL_LEX]}\" >, {p}")
                 return Token(EOL, EOL_LEX), -1
         elif line[p] >= '0' and line[p] <= '9':
+            global maxSR
             num = 0
             try:
                 while(line[p] >= '0' and line[p] <= '9'):
@@ -380,14 +381,14 @@ def nextToken(line: str, p: int, lineno: int):
                     p += 1
             except IndexError:
                 if sFlag: print(f"{lineno}: < {CATEGORIES[REG]}, \"r{num}\" >, {p}")
-                # if num > maxSR: # ADDED THIS FOR LAB 2
-                #     global maxSR
-                #     maxSR = num
+                # global maxSR    # ADDED THIS FOR LAB 2
+                if num > maxSR: 
+                    maxSR = num
                 return Token(REG, num), p  # register
             if sFlag: print(f"{lineno}: < {CATEGORIES[REG]}, \"r{num}\" >, {p}")
-            # if num > maxSR: # ADDED THIS FOR LAB 2
-            #     global maxSR
-            #     maxSR = num
+            # global maxSR    # ADDED THIS FOR LAB 2
+            if num > maxSR: 
+                maxSR = num
             return Token(REG, num), p  # register
         else:
             error(lineno, f"\"{line[p]}\" is not a valid word.")
@@ -729,7 +730,8 @@ def parse(argv: list):
             print("Due to syntax error, run terminates.")
         else:
             print(f"lab1.py found {noerrors} error(s).")
-    return dummy
+    global maxSR
+    return dummy, maxSR
 
 
 #===============================================================================
