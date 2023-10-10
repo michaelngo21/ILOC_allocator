@@ -23,6 +23,7 @@ Optional flags:
                   (This flag is additive. More '-l's means more log info.)
 """
 
+# note: the computation of maxLive overshoots it. In reality, I think load operations may kill the register being used, meaning they should be removed from the live set.
 def rename(dummy: lab1.IR_Node, maxSR: int):
     # test performance difference between using dict vs having maxSR as an input and using arrays
     vrName = 0
@@ -35,27 +36,21 @@ def rename(dummy: lab1.IR_Node, maxSR: int):
     curr = dummy.prev
     index = curr.lineno
 
-    live = 0
+    live = set()
     maxLive = 0
     
     while curr != dummy:
         # for each operand o that curr defines (NOTE: op3 always corresponds to a definition (bc store's op3 is stored in op2))
         o = curr.op3
         if o.sr != -1:  
-            if srToVR[o.sr] == None:    # before I used "not srToVR.get(o.sr)", but 0 is considered "falsy"
+            if srToVR[o.sr] == None:    # definition without a use, don't count towards maxLive (also: before I used "not srToVR.get(o.sr)", but 0 is considered "falsy")
                 srToVR[o.sr] = vrName
                 vrName += 1
-            # for maxLive >>>
-            else:   # if the SR gets defined later on, then decre\ment the number of live registers to reflect that the later definition doesn't exist at the same time as this one (will possibly increment if this def gets used)
-                live -= 1
-                # print(f"live: {live}")
-            # for maxLive <<<
             o.vr = srToVR[o.sr]
             # for maxLive >>>
             if lu[o.sr] != float('inf'):    # check that this definition is eventually used b/c if it isn't, then it doesn't count towards maxLive
-                live += 1
-                # print(f"live: {live}, maxLive: {maxLive}")
-                maxLive = max(maxLive, live)
+                live.add(o.sr)
+                maxLive = max(maxLive, len(live))
             # for maxLive <<<
             o.nu = lu[o.sr]
             srToVR[o.sr] = None
@@ -107,92 +102,92 @@ def rename(dummy: lab1.IR_Node, maxSR: int):
 
 # def freeAPR(stack: [], pr: int):
 
-# def spill(pr):
+def spill(pr):
+    pass
+def restore(pr):
+    pass
 
-# def restore(pr):
+def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
+    stack = []
+    # marks = {}  # using a map instead of an array of length k because this makes clear operation more efficient
 
-
-# def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
-#     stack = []
-#     # marks = {}  # using a map instead of an array of length k because this makes clear operation more efficient
-
-#     vrToPR = [None] * (maxSR + 1)
-#     prToVR = []
-#     prNU = []
-#     for pr in range(k):
-#         prToVR.append(None)
-#         prNU.append(float('inf'))
-#         stack.append(pr)    # pop() occurs in GetAPR()
+    vrToPR = [None] * (maxSR + 1)
+    prToVR = []
+    prNU = []
+    for pr in range(k):
+        prToVR.append(None)
+        prNU.append(float('inf'))
+        stack.append(pr)    # pop() occurs in GetAPR()
     
-#     # iterate over the block
-#     curr = dummy.next
-#     while curr != dummy:
-#         marks = [] # reset marks (NOTE: using a map instead of an array of length k because this makes clear operation more efficient)
+    # iterate over the block
+    curr = dummy.next
+    while curr != dummy:
+        marks = [] # reset marks (NOTE: using a map instead of an array of length k because this makes clear operation more efficient)
         
-#         # allocate each use u of curr
-#         for i in range(1, 3):  
-#             if i == 1:
-#                 u = curr.op1
-#             if i == 2:
-#                 u = curr.op2
-#             pr = vrToPR[u.vr]
-#             if pr == None:
-#                 # u.pr = getAPR(stack, marks, k, u.vr, u.nr)
-#                 ### getAPR >>>
-#                 if stack:
-#                     x = stack.pop()
-#                 else:
-#                     # pick an unmarked x to spill
-#                     x = 0
-#                     while x not in marks:
-#                         x += 1
-#                     spill(x)
-#                 vrToPR[u.vr] = x
-#                 prToVR[x] = u.vr
-#                 prNU[x] = u.nu 
+        # allocate each use u of curr
+        for i in range(1, 3):  
+            if i == 1:
+                u = curr.op1
+            if i == 2:
+                u = curr.op2
+            pr = vrToPR[u.vr]
+            if pr == None:
+                # u.pr = getAPR(stack, marks, k, u.vr, u.nr)
+                ### getAPR >>>
+                if stack:
+                    x = stack.pop()
+                else:
+                    # pick an unmarked x to spill
+                    x = 0
+                    while x not in marks:
+                        x += 1
+                    spill(x)
+                vrToPR[u.vr] = x
+                prToVR[x] = u.vr
+                prNU[x] = u.nu 
         
-#                 pr = x
-#                 ### getAPR <<<
-#                 restore(stack, u.vr, u.pr)
-#             else:
-#                 u.pr = pr
-#             marks.append(pr)
+                pr = x
+                ### getAPR <<<
+                restore(stack, u.vr, u.pr)
+            else:
+                u.pr = pr
+            marks.append(pr)
         
-#         # last use?
-#         for i in range(1, 3):  
-#             if i == 1:
-#                 u = curr.op1
-#             if i == 2:
-#                 u = curr.op2
-#             if u.nu == float('inf') and prToVR[u.pr] != None:
-#                 # freeAPR(stack, u.pr)
-#                 ### freeAPR >>>
-#                 vrToPR[prToVR[u.pr]] = None
-#                 prToVR[u.pr] = None
-#                 prNU[u.pr] = float('inf')
-#                 stack.append(u.pr)
-#                 ### freeAPR <<<
+        # last use?
+        for i in range(1, 3):  
+            if i == 1:
+                u = curr.op1
+            if i == 2:
+                u = curr.op2
+            if u.nu == float('inf') and prToVR[u.pr] != None:
+                # freeAPR(stack, u.pr)
+                ### freeAPR >>>
+                vrToPR[prToVR[u.pr]] = None
+                prToVR[u.pr] = None
+                prNU[u.pr] = float('inf')
+                stack.append(u.pr)
+                ### freeAPR <<<
             
-#         marks = []    # reset marks (is this necessary if we only have 1 def?)
-#         d = curr.op3    # allocate defintions
-#         if d.sr != -1:  
-#             # d.pr = getAPR(stack, d.vr, d.nu)
-#             ### getAPR >>>
-#             if stack:
-#                 x = stack.pop()
-#             else:
-#                 # pick an unmarked x to spill
-#                 x = 0
-#                 while x not in marks:
-#                     x += 1
-#                 spill(x)
-#             vrToPR[d.vr] = x
-#             prToVR[x] = d.vr
-#             prNU[x] = d.nu 
+        marks = []    # reset marks (is this necessary if we only have 1 def?)
+        d = curr.op3    # allocate defintions
+        if d.sr != -1:  
+            # d.pr = getAPR(stack, d.vr, d.nu)
+            ### getAPR >>>
+            if stack:
+                x = stack.pop()
+            else:
+                # pick an unmarked x to spill
+                x = 0
+                while x not in marks:
+                    x += 1
+                spill(x)
+            vrToPR[d.vr] = x
+            prToVR[x] = d.vr
+            prNU[x] = d.nu 
     
-#             d.pr = x
-#             ### getAPR <<<
-#             marks.append(d.pr)  # (is this necessary if we only have 1 def?)
+            d.pr = x
+            ### getAPR <<<
+            marks.append(d.pr)  # (is this necessary if we only have 1 def?)
 
 
 def main():
