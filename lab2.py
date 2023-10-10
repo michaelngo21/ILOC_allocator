@@ -26,8 +26,11 @@ Optional flags:
 def rename(dummy: lab1.IR_Node, maxSR: int):
     # test performance difference between using dict vs having maxSR as an input and using arrays
     vrName = 0
-    srToVR = [None] * (maxSR + 1)
-    lu = [float('inf')] * (maxSR + 1)
+    srToVR = []
+    lu = []
+    for i in range(maxSR + 1):
+        srToVR.append(None)
+        lu.append([float('inf')])
 
     curr = dummy.prev
     index = curr.lineno
@@ -88,7 +91,7 @@ def rename(dummy: lab1.IR_Node, maxSR: int):
         index -= 1
         curr = curr.prev
 
-        return maxLive
+    return maxLive
     
 # # potentially consider in-lining?
 # def getAPR(stack: [], marks: [], k: int, vr: int, nu: int)->int:
@@ -206,6 +209,7 @@ def main():
         if sys.argv[1] == "-h":
             print(helpMessage)
             return
+        filename = sys.argv[1]
     else:
         if sys.argv[1].isnumeric():
             k = int(sys.argv[1])
