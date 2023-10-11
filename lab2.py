@@ -28,7 +28,7 @@ def rename(dummy: lab1.IR_Node, maxSR: int):
     # test performance difference between using dict vs having maxSR as an input and using arrays
     vrName = 0
     srToVR = []
-    lu = []
+    lu = [] # last use
     for i in range(maxSR + 1):
         srToVR.append(None)
         lu.append([float('inf')])
@@ -46,12 +46,11 @@ def rename(dummy: lab1.IR_Node, maxSR: int):
             if srToVR[o.sr] == None:    # definition without a use, don't count towards maxLive (also: before I used "not srToVR.get(o.sr)", but 0 is considered "falsy")
                 srToVR[o.sr] = vrName
                 vrName += 1
-            o.vr = srToVR[o.sr]
             # for maxLive >>>
-            if lu[o.sr] != float('inf'):    # check that this definition is eventually used b/c if it isn't, then it doesn't count towards maxLive
-                live.add(o.sr)
-                maxLive = max(maxLive, len(live))
+            else:
+                live.remove(o.sr)
             # for maxLive <<<
+            o.vr = srToVR[o.sr]
             o.nu = lu[o.sr]
             srToVR[o.sr] = None
             lu[o.sr] = float('inf')
@@ -70,6 +69,10 @@ def rename(dummy: lab1.IR_Node, maxSR: int):
             if srToVR[o.sr] == None:
                 srToVR[o.sr] = vrName
                 vrName += 1
+                # for maxLive >>>
+                live.add(o.sr)
+                maxLive = max(maxLive, len(live))
+                # for maxLive <<<
             o.vr = srToVR[o.sr]
             o.nu = lu[o.sr]
 
@@ -108,7 +111,7 @@ def restore(pr):
     pass
 
 def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
-    stack = []
+    freePRStack = []
     # marks = {}  # using a map instead of an array of length k because this makes clear operation more efficient
 
     vrToPR = [None] * (maxSR + 1)
@@ -117,7 +120,7 @@ def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
     for pr in range(k):
         prToVR.append(None)
         prNU.append(float('inf'))
-        stack.append(pr)    # pop() occurs in GetAPR()
+        freePRStack.append(pr)    # pop() occurs in GetAPR()
     
     # iterate over the block
     curr = dummy.next
@@ -134,8 +137,8 @@ def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
             if pr == None:
                 # u.pr = getAPR(stack, marks, k, u.vr, u.nr)
                 ### getAPR >>>
-                if stack:
-                    x = stack.pop()
+                if freePRStack:
+                    x = freePRStack.pop()
                 else:
                     # pick an unmarked x to spill
                     x = 0
@@ -148,7 +151,7 @@ def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
         
                 pr = x
                 ### getAPR <<<
-                restore(stack, u.vr, u.pr)
+                restore(freePRStack, u.vr, u.pr)
             else:
                 u.pr = pr
             marks.append(pr)
@@ -165,7 +168,7 @@ def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
                 vrToPR[prToVR[u.pr]] = None
                 prToVR[u.pr] = None
                 prNU[u.pr] = float('inf')
-                stack.append(u.pr)
+                freePRStack.append(u.pr)
                 ### freeAPR <<<
             
         marks = []    # reset marks (is this necessary if we only have 1 def?)
@@ -173,8 +176,8 @@ def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
         if d.sr != -1:  
             # d.pr = getAPR(stack, d.vr, d.nu)
             ### getAPR >>>
-            if stack:
-                x = stack.pop()
+            if freePRStack:
+                x = freePRStack.pop()
             else:
                 # pick an unmarked x to spill
                 x = 0
