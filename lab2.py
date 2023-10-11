@@ -105,14 +105,32 @@ def rename(dummy: lab1.IR_Node, maxSR: int):
 
 # def freeAPR(stack: [], pr: int):
 
-def spill(pr):
-    pass
-def restore(pr):
-    pass
+def spill(pr, reservePR, vrToSpillLoc, nextSpillLoc, prToVR):
+    vr = prToVR[pr]
+    vrToSpillLoc[vr] = nextSpillLoc
+    nextSpillLoc += 1   # this doesn't work in function form, would need to inline
+    loadI_Node = lab1.IR_Node(True, lab1.LOADI_LEX, nextSpillLoc, -1, reservePR)
+    print(loadI_Node.printWithPRClean)
+    store_Node = lab1.IR_Node(True, lab1.STORE_LEX, pr, -1, reservePR)
+    print(store_Node.printWithPRClean)
 
-def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
+    return nextSpillLoc # need to remember next spillLoc
+
+def restore(vr, pr, reservePR, vrToSpillLoc):
+    spillLoc = vrToSpillLoc[vr]
+    loadI_Node = lab1.IR_Node(True, lab1.LOADI_LEX, spillLoc, -1, reservePR)
+    print(loadI_Node.printWithPRClean)
+    load_Node = lab1.IR_Node(True, lab1.LOAD_LEX, pr, -1, reservePR)
+    print(load_Node.printWithPRClean)
+
+def allocate(dummy: lab1.IR_Node, k: int, maxSR: int, maxLive: int):
     freePRStack = []
-    # marks = {}  # using a map instead of an array of length k because this makes clear operation more efficient
+    vrToSpillLoc= {}
+    nextSpillLoc = 32768
+    reservePR = -1
+    if k > maxLive:
+        reservePR = k - 1
+    k = k - 1   # ensure (k-1)th register isn't considered available (i.e., not added to freePRStack or other PR lists), thus decrement
 
     vrToPR = [None] * (maxSR + 1)
     prToVR = []
@@ -127,6 +145,7 @@ def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
     while curr != dummy:
         marked = -1 # reset marked (NOTE: using a map instead of an array of length k because this makes clear operation more efficient)
         
+        print("curr:", curr.printWithVR())
         # allocate each use u of curr
         for i in range(1, 3):  
             if i == 1:
@@ -135,24 +154,28 @@ def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
                 u = curr.op2
             pr = vrToPR[u.vr]
             if pr == None:
-                # u.pr = getAPR(...)
                 ### getAPR >>>
                 if freePRStack:
                     x = freePRStack.pop()
                 else:
-                    # pick an unmarked x to spill
-                    prNU.index(max(prNU))   # potential optimization: don't require 2 passes for choosing PR with latest NU
-                    x = 0
+                    # pick an unmarked x to spill (based on whichever unmarked PR has latest next use)
+                    x = prNU.index(max(prNU))   # potential optimization: don't require 2 passes for choosing PR with latest NU
                     if x == marked:
-                        x += 1
-                    spill(x)
+                        tempCopy = list(prNU)
+                        tempCopy.pop(x)
+                        newx = tempCopy.index(max(tempCopy))    # again ^
+                        if newx >= x:
+                            newx += 1
+                        x = newx                # potential optimization place ^
+                    nextSpillLoc = spill(x, reservePR, vrToSpillLoc, nextSpillLoc, prToVR)
                 vrToPR[u.vr] = x
                 prToVR[x] = u.vr
                 prNU[x] = u.nu 
-        
-                pr = x
                 ### getAPR <<<
-                restore(freePRStack, u.vr, u.pr)
+                u.pr = x
+                print(f"curr.lineno: {curr.lineno}")
+                print(f"calling restore(u.vr={u.vr}, u.pr={u.pr}, reservePR={reservePR}, vrToSpillLoc={vrToSpillLoc})")
+                restore(u.vr, u.pr, reservePR, vrToSpillLoc)
             else:
                 u.pr = pr
             marked = pr
@@ -164,7 +187,6 @@ def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
             if i == 2:
                 u = curr.op2
             if u.nu == float('inf') and prToVR[u.pr] != None:
-                # freeAPR(stack, u.pr)
                 ### freeAPR >>>
                 vrToPR[prToVR[u.pr]] = None
                 prToVR[u.pr] = None
@@ -172,7 +194,7 @@ def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
                 freePRStack.append(u.pr)
                 ### freeAPR <<<
             
-        marked = -1    # reset marks (is this necessary if we only have 1 def?)
+        # marked = -1    # reset marks (is this necessary if we only have 1 def?)
         d = curr.op3    # allocate defintions
         if d.sr != -1:  
             # d.pr = getAPR(stack, d.vr, d.nu)
@@ -180,10 +202,8 @@ def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
             if freePRStack:
                 x = freePRStack.pop()
             else:
-                # pick an unmarked x to spill
-                x = 0
-                while x not in marks:
-                    x += 1
+                # pick an unmarked x to spill (based on whichever PR has latest next use)
+                x = prNU.index(max(prNU))   # potential optimization: don't require 2 passes for choosing PR with latest NU
                 spill(x)
             vrToPR[d.vr] = x
             prToVR[x] = d.vr
@@ -191,7 +211,15 @@ def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
     
             d.pr = x
             ### getAPR <<<
-            marked = d.pr  # (is this necessary if we only have 1 def?)
+            # marked = d.pr  # (is this necessary if we only have 1 def?)
+
+        print(curr.printWithPRClean())
+
+        # TEMPORARY CODE: check whether vrToPR and prToVR match
+        for vr in range(len(vrToPR)):
+            pr = vrToPR[vr]
+            if prToVR[pr] != vr:
+                print(f"vrToPR and prToVR don't match! vrToPR[{vr}]: {pr}, but prToVR[{pr}]: {prToVR[pr]}")
 
 
 def main():
@@ -222,20 +250,16 @@ def main():
             exit(0)
 
         filename = sys.argv[2]
-        if sys.argv[3] == "-x":
-            xFlag = True
-        if sys.argv[3] == "-m":
-            mFlag = True
-        elif sys.argv[1].isnumeric():
-            k = int(sys.argv[1])
-            if k < 3 or k > 64:
-                print(f"ERROR: k outside the valid range of [3, 64], the input k was: \'{sys.argv[1]}\'.", file=sys.stderr)
+        if argc == 4:
+            if sys.argv[3] == "-x":
+                xFlag = True
+                print("xFlag set to True")
+            elif sys.argv[3] == "-m":
+                mFlag = True
+            else:
+                print(f"ERROR: Command line argument \'{sys.argv[3]}\' not recognized.", file=sys.stderr)
                 print(helpMessage)
                 exit(0)
-        else:
-            print(f"ERROR: Command line argument \'{sys.argv[1]}\' not recognized.", file=sys.stderr)
-            print(helpMessage)
-            exit(0)
     
     # if filename can't be opened, lab1 will print error message and exit cleanly
     dummy, maxSR = lab1.parse(["lab1.py", filename]) # dummy is the head of the linked list 
@@ -254,7 +278,7 @@ def main():
         print("maxLive:", maxLive)
 
     # ALLOCATOR ALGORITHM
-    
+    # allocate(dummy, k, maxSR, maxLive)
 
     
 if __name__ == "__main__": # if called by the command line, execute main()

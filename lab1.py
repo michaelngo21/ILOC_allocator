@@ -84,6 +84,13 @@ class Operand:
             vr_str = str(self.vr) if self.vr != -1 else ""
         return vr_str
 
+    def printPRClean(self):
+        if not self.isConstant:
+            pr_str = "r" + str(self.pr) if self.pr != -1 else ""
+        else: 
+            pr_str = str(self.pr) if self.pr != -1 else ""
+        return pr_str
+
     # def setIsConstant(self, isConstant):
     #     self.isConstant = isConstant
 
@@ -108,6 +115,13 @@ class IR_Node:
         # Store information regarding whether op1 is a register or a constant
         if self.opcode == LOADI_LEX or self.opcode == OUTPUT_LEX:
             self.op1.isConstant = True
+    
+    def __init__(self, isSpillOrRestore: bool, opcode: int, pr1: int, pr2: int, pr3: int):
+        if isSpillOrRestore:
+            self.opcode = opcode
+            self.op1 = Operand(sr=-1, pr=pr1)
+            self.op2 = Operand(sr=-1, pr=pr2)
+            self.op3 = Operand(sr=-1, pr=pr3)
 
     def printWithSR(self):
         return f"{LEXEMES[self.opcode]}\t{self.op1.printSR()}, {self.op2.printSR()}, {self.op3.printSR()}"
@@ -119,6 +133,22 @@ class IR_Node:
         op1Str = self.op1.printVRClean()
         op2Str = self.op2.printVRClean()
         op3Str = self.op3.printVRClean()
+        if self.opcode == STORE_LEX: # if store operation, then op2 should be printed as rhs (op3)
+            temp = op2Str
+            op2Str = op3Str
+            op3Str = temp
+
+        res = f"{LEXEMES[self.opcode]}\t{op1Str}"
+        if op2Str != "":
+            res += ", " + op2Str
+        if op3Str != "":
+            res += " => " + op3Str
+        return res
+    
+    def printWithPRClean(self):
+        op1Str = self.op1.printPRClean()
+        op2Str = self.op2.printPRClean()
+        op3Str = self.op3.printPRClean()
         if self.opcode == STORE_LEX: # if store operation, then op2 should be printed as rhs (op3)
             temp = op2Str
             op2Str = op3Str
