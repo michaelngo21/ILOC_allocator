@@ -36,7 +36,7 @@ def rename(dummy: lab1.IR_Node, maxSR: int):
     curr = dummy.prev
     index = curr.lineno
 
-    live = set()
+    live = 0
     maxLive = 0
     
     while curr != dummy:
@@ -48,7 +48,7 @@ def rename(dummy: lab1.IR_Node, maxSR: int):
                 vrName += 1
             # for maxLive >>>
             else:
-                live.remove(o.sr)
+                live -= 1
             # for maxLive <<<
             o.vr = srToVR[o.sr]
             o.nu = lu[o.sr]
@@ -70,8 +70,8 @@ def rename(dummy: lab1.IR_Node, maxSR: int):
                 srToVR[o.sr] = vrName
                 vrName += 1
                 # for maxLive >>>
-                live.add(o.sr)
-                maxLive = max(maxLive, len(live))
+                live += 1
+                maxLive = max(maxLive, live)
                 # for maxLive <<<
             o.vr = srToVR[o.sr]
             o.nu = lu[o.sr]
@@ -125,7 +125,7 @@ def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
     # iterate over the block
     curr = dummy.next
     while curr != dummy:
-        marks = [] # reset marks (NOTE: using a map instead of an array of length k because this makes clear operation more efficient)
+        marked = -1 # reset marked (NOTE: using a map instead of an array of length k because this makes clear operation more efficient)
         
         # allocate each use u of curr
         for i in range(1, 3):  
@@ -135,14 +135,15 @@ def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
                 u = curr.op2
             pr = vrToPR[u.vr]
             if pr == None:
-                # u.pr = getAPR(stack, marks, k, u.vr, u.nr)
+                # u.pr = getAPR(...)
                 ### getAPR >>>
                 if freePRStack:
                     x = freePRStack.pop()
                 else:
                     # pick an unmarked x to spill
+                    prNU.index(max(prNU))   # potential optimization: don't require 2 passes for choosing PR with latest NU
                     x = 0
-                    while x not in marks:
+                    if x == marked:
                         x += 1
                     spill(x)
                 vrToPR[u.vr] = x
@@ -154,7 +155,7 @@ def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
                 restore(freePRStack, u.vr, u.pr)
             else:
                 u.pr = pr
-            marks.append(pr)
+            marked = pr
         
         # last use?
         for i in range(1, 3):  
@@ -171,7 +172,7 @@ def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
                 freePRStack.append(u.pr)
                 ### freeAPR <<<
             
-        marks = []    # reset marks (is this necessary if we only have 1 def?)
+        marked = -1    # reset marks (is this necessary if we only have 1 def?)
         d = curr.op3    # allocate defintions
         if d.sr != -1:  
             # d.pr = getAPR(stack, d.vr, d.nu)
@@ -190,7 +191,7 @@ def allocate(dummy: lab1.IR_Node, k: int, maxSR: int):
     
             d.pr = x
             ### getAPR <<<
-            marks.append(d.pr)  # (is this necessary if we only have 1 def?)
+            marked = d.pr  # (is this necessary if we only have 1 def?)
 
 
 def main():
