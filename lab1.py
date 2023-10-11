@@ -113,14 +113,17 @@ class IR_Node:
             self.op1 = Operand(sr1)
             self.op2 = Operand(sr2)
             self.op3 = Operand(sr3)
-            # Store information regarding whether op1 is a register or a constant
-            if self.opcode == LOADI_LEX or self.opcode == OUTPUT_LEX:
-                self.op1.isConstant = True
+            # # Store information regarding whether op1 is a register or a constant
+            # if self.opcode == LOADI_LEX or self.opcode == OUTPUT_LEX:
+            #     self.op1.isConstant = True
         else:
             self.opcode = opcode
             self.op1 = Operand(sr=-1, pr=pr1)
             self.op2 = Operand(sr=-1, pr=pr2)
             self.op3 = Operand(sr=-1, pr=pr3)
+        # Store information regarding whether op1 is a register or a constant
+        if self.opcode == LOADI_LEX or self.opcode == OUTPUT_LEX:
+            self.op1.isConstant = True
 
     def printWithSR(self):
         return f"{LEXEMES[self.opcode]}\t{self.op1.printSR()}, {self.op2.printSR()}, {self.op3.printSR()}"
