@@ -124,10 +124,9 @@ def getAPR(vr: int, nu: int, freePRStack: [], marked: int, reservePR: int, vrToS
 # def freeAPR(stack: [], pr: int):
 
 def spill(pr, reservePR, vrToSpillLoc, nextSpillLoc, prToVR, vrToPR):
-    print(f"entered spill with pr:{pr} which associates to vr:{prToVR[pr]}, which will get the nextSpillLoc:{nextSpillLoc}")
+    # print(f"entered spill with pr:{pr} which associates to vr:{prToVR[pr]}, which will get the nextSpillLoc:{nextSpillLoc}")
     vr = prToVR[pr]
     vrToSpillLoc[vr] = nextSpillLoc
-    nextSpillLoc += 4   # NOTE: addresses are word-aligned, so must be multiples of 4
     # NOTE: since Python doesn't support method overloading, I include the first 4 arguments as formality, but they get tossed out
     loadI_Node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.LOADI_LEX, pr1=nextSpillLoc, pr2=-1, pr3=reservePR)
     print(loadI_Node.printWithPRClean())
@@ -136,10 +135,11 @@ def spill(pr, reservePR, vrToSpillLoc, nextSpillLoc, prToVR, vrToPR):
     print(store_Node.printWithPRClean())
 
     vrToPR[vr] = None
+    nextSpillLoc += 4   # NOTE: addresses are word-aligned, so must be multiples of 4
     return nextSpillLoc # need to remember next spillLoc
 
 def restore(vr, pr, reservePR, vrToSpillLoc):
-    print(f"entered restore with vr:{vr} which associates to spillLoc:{vrToSpillLoc[vr]}, and the value at this address will be stored in pr:{pr}")
+    # print(f"entered restore with vr:{vr} which associates to spillLoc:{vrToSpillLoc[vr]}, and the value at this address will be stored in pr:{pr}")
     spillLoc = vrToSpillLoc[vr]
     loadI_Node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.LOADI_LEX, pr1=spillLoc, pr2=-1, pr3=reservePR)
     print(loadI_Node.printWithPRClean())
@@ -269,7 +269,7 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
                 print(f"vrToPR and prToVR don't match! vrToPR[{vr}]: {pr}, but prToVR[{pr}]: {prToVR[pr]}")
 
         # TEMPORARY CODE: look into vrToSpillLoc
-        print(f"vrToSpillLoc: {vrToSpillLoc}")
+        # print(f"vrToSpillLoc: {vrToSpillLoc}")
         # print(f"prToVR: {prToVR}")
         # print(f"vrToPR: {vrToPR}")
         
