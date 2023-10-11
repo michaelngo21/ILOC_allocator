@@ -152,6 +152,8 @@ class IR_Node:
         op2Str = self.op2.printPRClean()
         op3Str = self.op3.printPRClean()
         if self.opcode == STORE_LEX: # if store operation, then op2 should be printed as rhs (op3)
+            # print("self.opcode == STORE_LEX")
+            # print(f"op1Str:{op1Str}, op2Str:{op2Str}, op3Str:{op3Str}")
             temp = op2Str
             op2Str = op3Str
             op3Str = temp
