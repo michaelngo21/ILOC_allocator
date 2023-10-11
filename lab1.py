@@ -106,18 +106,17 @@ class IR_Node:
     op1 = None
     op2 = None
     op3 = None
-    def __init__(self, lineno: int, opcode: int, sr1: int, sr2: int, sr3: int):
-        self.lineno = lineno
-        self.opcode = opcode
-        self.op1 = Operand(sr1)
-        self.op2 = Operand(sr2)
-        self.op3 = Operand(sr3)
-        # Store information regarding whether op1 is a register or a constant
-        if self.opcode == LOADI_LEX or self.opcode == OUTPUT_LEX:
-            self.op1.isConstant = True
-    
-    def __init__(self, isSpillOrRestore: bool, opcode: int, pr1: int, pr2: int, pr3: int):
-        if isSpillOrRestore:
+    def __init__(self, lineno: int, opcode: int, sr1: int, sr2: int, sr3: int, isSpillOrRestore=False, pr1=-1, pr2=-1, pr3=-1):
+        if not isSpillOrRestore:
+            self.lineno = lineno
+            self.opcode = opcode
+            self.op1 = Operand(sr1)
+            self.op2 = Operand(sr2)
+            self.op3 = Operand(sr3)
+            # Store information regarding whether op1 is a register or a constant
+            if self.opcode == LOADI_LEX or self.opcode == OUTPUT_LEX:
+                self.op1.isConstant = True
+        else:
             self.opcode = opcode
             self.op1 = Operand(sr=-1, pr=pr1)
             self.op2 = Operand(sr=-1, pr=pr2)

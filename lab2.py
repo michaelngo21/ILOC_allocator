@@ -109,18 +109,19 @@ def spill(pr, reservePR, vrToSpillLoc, nextSpillLoc, prToVR):
     vr = prToVR[pr]
     vrToSpillLoc[vr] = nextSpillLoc
     nextSpillLoc += 1   # this doesn't work in function form, would need to inline
-    loadI_Node = lab1.IR_Node(True, lab1.LOADI_LEX, nextSpillLoc, -1, reservePR)
+    # NOTE: since Python doesn't support method overloading, I include the first 4 arguments as formality, but they get tossed out
+    loadI_Node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.LOADI_LEX, pr1=nextSpillLoc, pr2=-1, pr3=reservePR)
     print(loadI_Node.printWithPRClean)
-    store_Node = lab1.IR_Node(True, lab1.STORE_LEX, pr, -1, reservePR)
+    store_Node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.STORE_LEX, pr1=pr, pr2=-1, pr3=reservePR)
     print(store_Node.printWithPRClean)
 
     return nextSpillLoc # need to remember next spillLoc
 
 def restore(vr, pr, reservePR, vrToSpillLoc):
     spillLoc = vrToSpillLoc[vr]
-    loadI_Node = lab1.IR_Node(True, lab1.LOADI_LEX, spillLoc, -1, reservePR)
+    loadI_Node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.LOADI_LEX, pr1=spillLoc, pr2=-1, pr3=reservePR)
     print(loadI_Node.printWithPRClean)
-    load_Node = lab1.IR_Node(True, lab1.LOAD_LEX, pr, -1, reservePR)
+    load_Node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.LOAD_LEX, pr1=pr, pr2=-1, pr3=reservePR)
     print(load_Node.printWithPRClean)
 
 def allocate(dummy: lab1.IR_Node, k: int, maxSR: int, maxLive: int):
@@ -253,7 +254,6 @@ def main():
         if argc == 4:
             if sys.argv[3] == "-x":
                 xFlag = True
-                print("xFlag set to True")
             elif sys.argv[3] == "-m":
                 mFlag = True
             else:
@@ -262,6 +262,7 @@ def main():
                 exit(0)
     
     # if filename can't be opened, lab1 will print error message and exit cleanly
+    # TODO: remove "-r"
     dummy, maxSR = lab1.parse(["lab1.py", filename]) # dummy is the head of the linked list 
 
     # RENAMING ALGORITHM
@@ -278,7 +279,7 @@ def main():
         print("maxLive:", maxLive)
 
     # ALLOCATOR ALGORITHM
-    # allocate(dummy, k, maxSR, maxLive)
+    allocate(dummy, k, maxSR, maxLive)
 
     
 if __name__ == "__main__": # if called by the command line, execute main()
