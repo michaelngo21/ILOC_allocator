@@ -93,6 +93,8 @@ def rename(dummy: lab1.IR_Node, maxSR: int):
     
 # # potentially consider in-lining?
 def getAPR(vr: int, nu: int, freePRStack: [], marked: int, reservePR: int, vrToSpillLoc: {}, prToVR: [], prNU: [], vrToPR: [], nextSpillLoc: int)->int:
+    # print(f"//freePRStack: {freePRStack}")
+    # print(f"//prToVR: {prToVR}")
     if freePRStack:
         # print(f"freePRStack contains free PRs: {freePRStack}")
         x = freePRStack.pop()
@@ -101,10 +103,11 @@ def getAPR(vr: int, nu: int, freePRStack: [], marked: int, reservePR: int, vrToS
         # pick an unmarked x to spill (based on whichever unmarked PR has latest next use)
         # print(f"prNU: {prNU}")
         x = prNU.index(max(prNU))   # potential optimization: don't require 2 passes for choosing PR with latest NU
-        # print(f"choosing to spill register x: {x}, prNU[x]: {prNU[x]}, prNU: {prNU}")
+        # print(f"//choosing to spill register x: {x}") #, prNU[x]: {prNU[x]}, prNU: {prNU}")
         
         # only check for marked if marked exists (uses not definitions)
         if marked != -1:
+            # print(f"//marked: {marked}, x: {x}")
             if x == marked:
                 tempCopy = list(prNU)
                 tempCopy.pop(x)
@@ -112,13 +115,15 @@ def getAPR(vr: int, nu: int, freePRStack: [], marked: int, reservePR: int, vrToS
                 if newx >= x:
                     newx += 1
                 x = newx                # potential optimization place ^
+                # print(f"//x was marked, so we instead picked newx: {x}, prNU[x]: {prNU[x]}, prNU: {prNU}")
 
         nextSpillLoc = spill(x, reservePR, vrToSpillLoc, nextSpillLoc, prToVR, vrToPR)
     vrToPR[vr] = x
     prToVR[x] = vr
-    # print(f"prNU[x:{x}] = nu:{nu}")
+    # print(f"//prNU[x:{x}] = nu:{nu}")
     prNU[x] = nu 
 
+    # print(f"//getAPR returning: {x}, {nextSpillLoc}")
     return x, nextSpillLoc
 
 # def freeAPR(stack: [], pr: int):
@@ -135,6 +140,7 @@ def spill(pr, reservePR, vrToSpillLoc, nextSpillLoc, prToVR, vrToPR):
     print(store_Node.printWithPRClean())
 
     vrToPR[vr] = None
+    prToVR[pr] = None # POTENTIAL TEMP CODE
     nextSpillLoc += 4   # NOTE: addresses are word-aligned, so must be multiples of 4
     return nextSpillLoc # need to remember next spillLoc
 
@@ -214,7 +220,8 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
                 restore(u.vr, u.pr, reservePR, vrToSpillLoc)
             else:
                 u.pr = pr
-            marked = pr
+            # print(f"//marked set to u.pr = {u.pr}")
+            marked = u.pr
         
         # last use?
         for i in range(1, 3):  
@@ -222,6 +229,7 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
                 u = curr.op1
             if i == 2:
                 u = curr.op2
+            # print(f"//potential freeAPR: if u.nu == float('inf') and prToVR[u.pr] != None : {u.nu == float('inf')} and {prToVR[u.pr] != None}")
             if u.nu == float('inf') and prToVR[u.pr] != None:
                 ### freeAPR >>>
                 # print(f"Calling freeAPR({u.pr})")
@@ -231,6 +239,9 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
                 prNU[u.pr] = float('inf')
                 freePRStack.append(u.pr)
                 ### freeAPR <<<
+            # TEMP CODE:
+            # elif u.nu == float('inf'):
+            #     print(f"//FREEAPR NOT CALLED, BUT u.nu = inf! prToVR[u.pr:{u.pr}]: {prToVR[u.pr]} and vrToPR: {vrToPR}")
             
         d = curr.op3    # allocate defintions
         if d.sr != -1:  
