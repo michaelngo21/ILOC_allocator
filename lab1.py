@@ -165,6 +165,20 @@ class IR_Node:
             res += " => " + op3Str
         return res
     
+    @staticmethod
+    def insertBefore(curr, newnode):
+        newnode.next = curr
+        newnode.prev = curr.prev
+        curr.prev.next = newnode
+        curr.prev = newnode
+    
+    @staticmethod
+    def insertAfter(curr, newnode):
+        newnode.next = curr.next
+        newnode.prev = curr
+        curr.next.prev = newnode
+        curr.next = newnode
+
     def append(self, dummy):
         self.prev = dummy.prev
         self.next = dummy

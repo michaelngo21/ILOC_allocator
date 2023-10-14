@@ -92,7 +92,7 @@ def rename(dummy: lab1.IR_Node, maxSR: int):
     return maxLive, vrName
     
 # # potentially consider in-lining?
-def getAPR(vr: int, nu: int, freePRStack: [], marked: int, reservePR: int, vrToSpillLoc: {}, prToVR: [], prNU: [], vrToPR: [], nextSpillLoc: int)->int:
+def getAPR(vr: int, nu: int, freePRStack: [], marked: int, reservePR: int, vrToSpillLoc: {}, prToVR: [], prNU: [], vrToPR: [], nextSpillLoc: int, curr:lab1.IR_Node)->int:
     # print(f"//freePRStack: {freePRStack}")
     # print(f"//prToVR: {prToVR}")
     if freePRStack:
@@ -117,7 +117,7 @@ def getAPR(vr: int, nu: int, freePRStack: [], marked: int, reservePR: int, vrToS
                 x = newx                # potential optimization place ^
                 # print(f"//x was marked, so we instead picked newx: {x}, prNU[x]: {prNU[x]}, prNU: {prNU}")
 
-        nextSpillLoc = spill(x, reservePR, vrToSpillLoc, nextSpillLoc, prToVR, vrToPR)
+        nextSpillLoc = spill(x, reservePR, vrToSpillLoc, nextSpillLoc, prToVR, vrToPR, curr)
     vrToPR[vr] = x
     prToVR[x] = vr
     # print(f"//prNU[x:{x}] = nu:{nu}")
@@ -128,29 +128,31 @@ def getAPR(vr: int, nu: int, freePRStack: [], marked: int, reservePR: int, vrToS
 
 # def freeAPR(stack: [], pr: int):
 
-def spill(pr, reservePR, vrToSpillLoc, nextSpillLoc, prToVR, vrToPR):
+def spill(pr, reservePR, vrToSpillLoc, nextSpillLoc, prToVR, vrToPR, curr:lab1.IR_Node):
     # print(f"entered spill with pr:{pr} which associates to vr:{prToVR[pr]}, which will get the nextSpillLoc:{nextSpillLoc}")
     vr = prToVR[pr]
     vrToSpillLoc[vr] = nextSpillLoc
     # NOTE: since Python doesn't support method overloading, I include the first 4 arguments as formality, but they get tossed out
-    loadI_Node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.LOADI_LEX, pr1=nextSpillLoc, pr2=-1, pr3=reservePR)
-    print(loadI_Node.printWithPRClean())
+    loadI_node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.LOADI_LEX, pr1=nextSpillLoc, pr2=-1, pr3=reservePR)
+    lab1.IR_Node.insertBefore(curr, loadI_node) # print(loadI_Node.printWithPRClean())
     # NOTE: recall that for store, what should go into pr3 should actually be stored in pr2 because it's a use. Printing the node with this structure leads to correct output
-    store_Node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.STORE_LEX, pr1=pr, pr2=reservePR, pr3=-1)
-    print(store_Node.printWithPRClean())
+    store_node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.STORE_LEX, pr1=pr, pr2=reservePR, pr3=-1)
+    lab1.IR_Node.insertBefore(curr, store_node)
+    # print(store_Node.printWithPRClean())
 
     vrToPR[vr] = None
     prToVR[pr] = None # POTENTIAL TEMP CODE
     nextSpillLoc += 4   # NOTE: addresses are word-aligned, so must be multiples of 4
     return nextSpillLoc # need to remember next spillLoc
 
-def restore(vr, pr, reservePR, vrToSpillLoc):
+def restore(vr, pr, reservePR, vrToSpillLoc, curr:lab1.IR_Node):
     # print(f"entered restore with vr:{vr} which associates to spillLoc:{vrToSpillLoc[vr]}, and the value at this address will be stored in pr:{pr}")
     spillLoc = vrToSpillLoc[vr]
-    loadI_Node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.LOADI_LEX, pr1=spillLoc, pr2=-1, pr3=reservePR)
-    print(loadI_Node.printWithPRClean())
-    load_Node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.LOAD_LEX, pr1=reservePR, pr2=-1, pr3=pr)
-    print(load_Node.printWithPRClean())
+    loadI_node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.LOADI_LEX, pr1=spillLoc, pr2=-1, pr3=reservePR)
+    lab1.IR_Node.insertBefore(curr, loadI_node) # print(loadI_Node.printWithPRClean())
+    load_node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.LOAD_LEX, pr1=reservePR, pr2=-1, pr3=pr)
+    lab1.IR_Node.insertBefore(curr, load_node)
+    # print(load_Node.printWithPRClean())
     # it will likely be a good idea to also update vrToPR (similar to how I did in spill)
 
 def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
@@ -169,7 +171,7 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
     for pr in range(k-1, -1, -1):
         prToVR.append(None)
         prNU.append(float('inf'))
-        freePRStack.append(pr)    # pop() occurs in GetAPR()
+        freePRStack.append(pr)    # pop() occurs in GetAPR
     
     # iterate over the block
     curr = dummy.next
@@ -214,10 +216,10 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
                 # u.pr = x
                 ### getAPR <<<
                 # print(f"calling getAPR(u.vr={u.vr}, u.nu={u.nu})")
-                u.pr, nextSpillLoc = getAPR(u.vr, u.nu, freePRStack, marked, reservePR, vrToSpillLoc, prToVR, prNU, vrToPR, nextSpillLoc)
+                u.pr, nextSpillLoc = getAPR(u.vr, u.nu, freePRStack, marked, reservePR, vrToSpillLoc, prToVR, prNU, vrToPR, nextSpillLoc, curr)
                 # print(f"curr.lineno: {curr.lineno}")
                 # print(f"calling restore(u.vr={u.vr}, u.pr={u.pr}, reservePR={reservePR}, vrToSpillLoc={vrToSpillLoc})")
-                restore(u.vr, u.pr, reservePR, vrToSpillLoc)
+                restore(u.vr, u.pr, reservePR, vrToSpillLoc, curr)
             else:
                 u.pr = pr
             # print(f"//marked set to u.pr = {u.pr}")
@@ -261,9 +263,9 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
             # d.pr = x
             ### getAPR <<<
             # print(f"calling getAPR(d.vr={d.vr}, d.nu={d.nu})")
-            d.pr, nextSpillLoc = getAPR(d.vr, d.nu, freePRStack, -1, reservePR, vrToSpillLoc, prToVR, prNU, vrToPR, nextSpillLoc)
+            d.pr, nextSpillLoc = getAPR(d.vr, d.nu, freePRStack, -1, reservePR, vrToSpillLoc, prToVR, prNU, vrToPR, nextSpillLoc, curr)
 
-        print(curr.printWithPRClean())
+        # print(curr.printWithPRClean())
 
         # TEMPORARY CODE: check whether vrToPR and prToVR match
         for vr in range(len(vrToPR)):
@@ -345,6 +347,11 @@ def main():
 
     # ALLOCATOR ALGORITHM
     allocate(dummy, k, maxVR, maxLive)
+
+    currnode = dummy.next
+    while currnode != dummy:
+        print(currnode.printWithPRClean())
+        currnode = currnode.next
 
     
 if __name__ == "__main__": # if called by the command line, execute main()
