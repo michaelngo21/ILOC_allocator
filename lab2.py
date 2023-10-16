@@ -141,11 +141,11 @@ def spill(pr, reservePR, vrToSpillLoc, nextSpillLoc, prToVR, vrToPR, curr:lab1.I
     # print(store_Node.printWithPRClean())
 
     vrToPR[vr] = None
-    prToVR[pr] = None # POTENTIAL TEMP CODE
+    # prToVR[pr] = None # POTENTIAL TEMP CODE
     nextSpillLoc += 4   # NOTE: addresses are word-aligned, so must be multiples of 4
     return nextSpillLoc # need to remember next spillLoc
 
-def restore(vr, pr, reservePR, vrToSpillLoc, curr:lab1.IR_Node):
+def restore(vr, pr, reservePR, vrToPR:[], vrToSpillLoc:[], curr:lab1.IR_Node):
     # print(f"entered restore with vr:{vr} which associates to spillLoc:{vrToSpillLoc[vr]}, and the value at this address will be stored in pr:{pr}")
     spillLoc = vrToSpillLoc[vr]
     loadI_node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.LOADI_LEX, pr1=spillLoc, pr2=-1, pr3=reservePR)
@@ -153,7 +153,7 @@ def restore(vr, pr, reservePR, vrToSpillLoc, curr:lab1.IR_Node):
     load_node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.LOAD_LEX, pr1=reservePR, pr2=-1, pr3=pr)
     lab1.IR_Node.insertBefore(curr, load_node)
     # print(load_Node.printWithPRClean())
-    # it will likely be a good idea to also update vrToPR (similar to how I did in spill)
+    # note: unnecessary to update vrToPR because that's done in getAPR
 
 def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
     freePRStack = []
@@ -219,7 +219,7 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
                 u.pr, nextSpillLoc = getAPR(u.vr, u.nu, freePRStack, marked, reservePR, vrToSpillLoc, prToVR, prNU, vrToPR, nextSpillLoc, curr)
                 # print(f"curr.lineno: {curr.lineno}")
                 # print(f"calling restore(u.vr={u.vr}, u.pr={u.pr}, reservePR={reservePR}, vrToSpillLoc={vrToSpillLoc})")
-                restore(u.vr, u.pr, reservePR, vrToSpillLoc, curr)
+                restore(u.vr, u.pr, reservePR, vrToPR, vrToSpillLoc, curr)
             else:
                 u.pr = pr
             # print(f"//marked set to u.pr = {u.pr}")
@@ -268,18 +268,18 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
         # print(curr.printWithPRClean())
 
         # TEMPORARY CODE: check whether vrToPR and prToVR match
-        for vr in range(len(vrToPR)):
-            pr = vrToPR[vr]
-            if pr == None:
-                continue
-            if prToVR[pr] != vr:
-                print(f"vrToPR and prToVR don't match! vrToPR[{vr}]: {pr}, but prToVR[{pr}]: {prToVR[pr]}")
-        for pr in range(len(prToVR)):
-            vr = prToVR[pr]
-            if vr == None:
-                continue
-            if vrToPR[vr] != pr:
-                print(f"vrToPR and prToVR don't match! vrToPR[{vr}]: {pr}, but prToVR[{pr}]: {prToVR[pr]}")
+        # for vr in range(len(vrToPR)):
+        #     pr = vrToPR[vr]
+        #     if pr == None:
+        #         continue
+        #     if prToVR[pr] != vr:
+        #         print(f"vrToPR and prToVR don't match! vrToPR[{vr}]: {pr}, but prToVR[{pr}]: {prToVR[pr]}")
+        # for pr in range(len(prToVR)):
+        #     vr = prToVR[pr]
+        #     if vr == None:
+        #         continue
+        #     if vrToPR[vr] != pr:
+        #         print(f"vrToPR and prToVR don't match! vrToPR[{vr}]: {pr}, but prToVR[{pr}]: {prToVR[pr]}")
 
         # TEMPORARY CODE: look into vrToSpillLoc
         # print(f"vrToSpillLoc: {vrToSpillLoc}")
