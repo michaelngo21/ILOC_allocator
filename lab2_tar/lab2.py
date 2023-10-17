@@ -131,9 +131,14 @@ def getAPR(vr: int, nu: int, freePRStack: [], marked: int, reservePR: int, vrToS
 def spill(pr, reservePR, vrToSpillLoc, nextSpillLoc, prToVR, vrToPR, curr:lab1.IR_Node):
     # print(f"entered spill with pr:{pr} which associates to vr:{prToVR[pr]}, which will get the nextSpillLoc:{nextSpillLoc}")
     vr = prToVR[pr]
-    vrToSpillLoc[vr] = nextSpillLoc
+    # if there is no memory location for VR already (it hasn't already been stored), then use the nextSpillLoc
+    if vrToSpillLoc.get(vr) == None:
+        vrToSpillLoc[vr] = nextSpillLoc
+        nextSpillLoc += 4   # NOTE: addresses are word-aligned, so must be multiples of 4
+    else:
+        print(f"//found a 'clean' VR={vr} which maps to {vrToSpillLoc[vr]} while nextSpillLoc={nextSpillLoc}")
     # NOTE: since Python doesn't support method overloading, I include the first 4 arguments as formality, but they get tossed out
-    loadI_node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.LOADI_LEX, pr1=nextSpillLoc, pr2=-1, pr3=reservePR)
+    loadI_node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.LOADI_LEX, pr1=vrToSpillLoc[vr], pr2=-1, pr3=reservePR)
     lab1.IR_Node.insertBefore(curr, loadI_node) # print(loadI_Node.printWithPRClean())
     # NOTE: recall that for store, what should go into pr3 should actually be stored in pr2 because it's a use. Printing the node with this structure leads to correct output
     store_node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.STORE_LEX, pr1=pr, pr2=reservePR, pr3=-1)
@@ -142,7 +147,7 @@ def spill(pr, reservePR, vrToSpillLoc, nextSpillLoc, prToVR, vrToPR, curr:lab1.I
 
     vrToPR[vr] = None
     # prToVR[pr] = None # POTENTIAL TEMP CODE
-    nextSpillLoc += 4   # NOTE: addresses are word-aligned, so must be multiples of 4
+    # nextSpillLoc += 4   # NOTE: addresses are word-aligned, so must be multiples of 4
     return nextSpillLoc # need to remember next spillLoc
 
 def restore(vr, pr, reservePR, vrToPR:[], vrToSpillLoc:[], curr:lab1.IR_Node):
