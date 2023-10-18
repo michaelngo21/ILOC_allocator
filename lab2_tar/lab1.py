@@ -179,6 +179,11 @@ class IR_Node:
         curr.next.prev = newnode
         curr.next = newnode
 
+    @staticmethod
+    def remove(curr):
+        curr.prev.next = curr.next
+        curr.next.prev = curr.prev
+
     def append(self, dummy):
         self.prev = dummy.prev
         self.next = dummy

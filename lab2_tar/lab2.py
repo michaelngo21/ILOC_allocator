@@ -129,7 +129,11 @@ def getAPR(vr: int, nu: int, freePRStack: [], marked: int, reservePR: int, vrToS
     # print(f"//getAPR returning: {x}, {nextSpillLoc}")
     return x, nextSpillLoc
 
-# def freeAPR(stack: [], pr: int):
+def freeAPR(pr, freePRStack, vrToPR, prToVR, prNU):
+    vrToPR[prToVR[pr]] = None
+    prToVR[pr] = None
+    prNU[pr] = float('inf')
+    freePRStack.append(pr)
 
 def spill(pr, reservePR, vrToSpillLoc, nextSpillLoc, prToVR, vrToPR, curr:lab1.IR_Node):
     # print(f"entered spill with pr:{pr} which associates to vr:{prToVR[pr]}, which will get the nextSpillLoc:{nextSpillLoc}")
@@ -146,7 +150,6 @@ def spill(pr, reservePR, vrToSpillLoc, nextSpillLoc, prToVR, vrToPR, curr:lab1.I
         lab1.IR_Node.insertBefore(curr, store_node)
 
     vrToPR[vr] = None
-    # nextSpillLoc += 4   # NOTE: addresses are word-aligned, so must be multiples of 4
     return nextSpillLoc # need to remember next spillLoc
 
 def restore(vr, pr, reservePR, vrToPR:[], vrToSpillLoc:[], curr:lab1.IR_Node):
@@ -161,8 +164,9 @@ def restore(vr, pr, reservePR, vrToPR:[], vrToSpillLoc:[], curr:lab1.IR_Node):
 
 def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
     freePRStack = []
-    vrToSpillLoc= {}
+    vrToSpillLoc = {}
     nextSpillLoc = 32768
+    vrToLoadIConst = {}
     reservePR = -1
     if k < maxLive:
         # print("k is less than maxLive, so reserving a PR")
@@ -181,7 +185,13 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
     curr = dummy.next
     while curr != dummy:
         marked = -1 # reset marked (NOTE: using a map instead of an array of length k because this makes clear operation more efficient)
-        
+        if curr.opcode == lab1.LOADI_LEX:
+            # print(f"entered loadI case: vrToLoadIConst[curr.op3.vr:{curr.op3.vr}] = curr.op1.sr:{curr.op1.sr}")
+            vrToLoadIConst[curr.op3.vr] = curr.op1.sr # Note that the constant value is stored in op1.sr (and potentially op1.vr as well--I forgot rename implementation)
+            lab1.IR_Node.remove(curr)
+            curr = curr.next    # note: even though curr has been removed, it's next field remains unchanged
+            continue
+
         # allocate each use u of curr
         for i in range(1, 3):  
             if i == 1:
@@ -193,14 +203,21 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
             if u.isConstant:
                 u.pr = u.vr # u.pr is set to u.sr since it's not a register, just a constant. This may be inefficient, not sure.
                 continue
+
             pr = vrToPR[u.vr]
             # print(f"pr: {pr}")
             if pr == None:
                 # print(f"calling getAPR(u.vr={u.vr}, u.nu={u.nu})")
                 u.pr, nextSpillLoc = getAPR(u.vr, u.nu, freePRStack, marked, reservePR, vrToSpillLoc, prToVR, prNU, vrToPR, nextSpillLoc, curr)
-                # print(f"curr.lineno: {curr.lineno}")
-                # print(f"calling restore(u.vr={u.vr}, u.pr={u.pr}, reservePR={reservePR}, vrToSpillLoc={vrToSpillLoc})")
-                restore(u.vr, u.pr, reservePR, vrToPR, vrToSpillLoc, curr)
+                # if rematerializable (loadI)
+                if u.vr in vrToLoadIConst:    
+                    loadI_Node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.LOADI_LEX, pr1=vrToLoadIConst[u.vr], pr2=-1, pr3=u.pr)
+                    lab1.IR_Node.insertBefore(curr, loadI_Node)
+                    # freeAPR(u.pr, freePRStack, vrToPR, prToVR, prNU)
+                # if not rematerializable
+                else:   
+                    # print(f"calling restore(u.vr={u.vr}, u.pr={u.pr}, reservePR={reservePR}, vrToSpillLoc={vrToSpillLoc})")
+                    restore(u.vr, u.pr, reservePR, vrToPR, vrToSpillLoc, curr)
             else:
                 u.pr = pr
             # print(f"//marked set to u.pr = {u.pr}")
@@ -212,39 +229,21 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
                 u = curr.op1
             if i == 2:
                 u = curr.op2
-            # print(f"//potential freeAPR: if u.nu == float('inf') and prToVR[u.pr] != None : {u.nu == float('inf')} and {prToVR[u.pr] != None}")
-            if u.nu == float('inf') and prToVR[u.pr] != None:
-                ### freeAPR >>>
-                # print(f"last use so calling freeAPR({u.pr}). The corresponding VR is {prToVR[u.pr]}")
-                vrToPR[prToVR[u.pr]] = None
-                prToVR[u.pr] = None
-                # print(f"prNU[x:{u.pr}] = nu:{float('inf')}")
-                prNU[u.pr] = float('inf')
-                freePRStack.append(u.pr)
+
+            # If this is the last use OR is rematerializable
+            if (u.nu == float('inf')  or u.vr in vrToLoadIConst) and prToVR[u.pr] != None:
+                # print(f"last use (or rematerialization) so calling freeAPR({u.pr}). The corresponding VR is {prToVR[u.pr]}")
+                freeAPR(u.pr, freePRStack, vrToPR, prToVR, prNU)
                 # print(f"freePRStack: {freePRStack}")
-                ### freeAPR <<<
-            # TEMP CODE:
-            # elif u.nu == float('inf'):
-            #     print(f"//FREEAPR NOT CALLED, BUT u.nu = inf! prToVR[u.pr:{u.pr}]: {prToVR[u.pr]} and vrToPR: {vrToPR}")
             
         d = curr.op3    # allocate defintions
         if d.sr != -1:  
             # print(f"calling getAPR(d.vr={d.vr}, d.nu={d.nu})")
             d.pr, nextSpillLoc = getAPR(d.vr, d.nu, freePRStack, -1, reservePR, vrToSpillLoc, prToVR, prNU, vrToPR, nextSpillLoc, curr)
-            # freeAPR if last def >>>>>>> 
             # definition never used?
-
-            # temp code
-            # if d.vr == 8:
-            #     print(f"found definition for vr8. d.nu:{d.nu}")
-
             if d.nu == float('inf'):    
                 # print(f"definition with no use for vr={prToVR[d.pr]}, so freeing pr={d.pr}")
-                vrToPR[prToVR[d.pr]] = None
-                prToVR[d.pr] = None
-                prNU[d.pr] = float('inf')
-                freePRStack.append(d.pr)
-            # <<<<<<<<<<
+                freeAPR(d.pr, freePRStack, vrToPR, prToVR, prNU)
                 
 
         # print(curr.printWithPRClean())
@@ -270,7 +269,6 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
         
         # update loop variable
         curr = curr.next
-
 
 def main():
     argc = len(sys.argv)
