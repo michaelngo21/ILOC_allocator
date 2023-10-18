@@ -100,7 +100,7 @@ def getAPR(vr: int, nu: int, freePRStack: [], marked: int, reservePR: int, vrToS
         # print(f"freePRStack contains free PRs: {freePRStack}")
         x = freePRStack.pop()
     else:
-        print(f"time to spill spill with vr={vr} b/c freePRStack doesn't contain any free PRs: {freePRStack}")
+        # print(f"time to spill spill with vr={vr} b/c freePRStack doesn't contain any free PRs: {freePRStack}")
         # pick an unmarked x to spill (based on whichever unmarked PR has latest next use)
         # print(f"prNU: {prNU}")
         x = prNU.index(max(prNU))   # potential optimization: don't require 2 passes for choosing PR with latest NU
@@ -213,13 +213,13 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
             # print(f"//potential freeAPR: if u.nu == float('inf') and prToVR[u.pr] != None : {u.nu == float('inf')} and {prToVR[u.pr] != None}")
             if u.nu == float('inf') and prToVR[u.pr] != None:
                 ### freeAPR >>>
-                print(f"Calling freeAPR({u.pr}). The corresponding VR is {prToVR[u.pr]}")
+                # print(f"Calling freeAPR({u.pr}). The corresponding VR is {prToVR[u.pr]}")
                 vrToPR[prToVR[u.pr]] = None
                 prToVR[u.pr] = None
                 # print(f"prNU[x:{u.pr}] = nu:{float('inf')}")
                 prNU[u.pr] = float('inf')
                 freePRStack.append(u.pr)
-                print(f"freePRStack: {freePRStack}")
+                # print(f"freePRStack: {freePRStack}")
                 ### freeAPR <<<
             # TEMP CODE:
             # elif u.nu == float('inf'):
@@ -229,10 +229,14 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
         if d.sr != -1:  
             # print(f"calling getAPR(d.vr={d.vr}, d.nu={d.nu})")
             d.pr, nextSpillLoc = getAPR(d.vr, d.nu, freePRStack, -1, reservePR, vrToSpillLoc, prToVR, prNU, vrToPR, nextSpillLoc, curr)
-            # new code (buggy still!) >>>>>>> 
-            if d.nu == float('inf'):
+            # freeAPR if last def >>>>>>> 
+            # definition never used?
+            if d.nu == float('inf'):    
+                # print(f"entered case of definition with no future use with vr={prToVR[d.pr]}, and pr={d.pr}")
                 vrToPR[prToVR[d.pr]] = None
                 prToVR[d.pr] = None
+                prNU[d.pr] = float('inf')
+                freePRStack.append(d.pr)
             # <<<<<<<<<<
                 
 
