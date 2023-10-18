@@ -52,6 +52,7 @@ def rename(dummy: lab1.IR_Node, maxSR: int):
             # for maxLive <<<
             o.vr = srToVR[o.sr]
             o.nu = lu[o.sr]
+            # print(f"RENAMING: o.vr:{o.vr}, o.nu:{o.nu}")
             srToVR[o.sr] = None
             lu[o.sr] = float('inf')
 
@@ -82,8 +83,9 @@ def rename(dummy: lab1.IR_Node, maxSR: int):
                 o = curr.op1
             if i == 2:
                 o = curr.op2
-            if o.isConstant:
+            if o.isConstant or o.sr == -1:
                 continue
+            # print(f"RENAMING: about to set lu[o.sr:{o.sr}] = {index}")
             lu[o.sr] = index
 
         index -= 1
@@ -213,7 +215,7 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
             # print(f"//potential freeAPR: if u.nu == float('inf') and prToVR[u.pr] != None : {u.nu == float('inf')} and {prToVR[u.pr] != None}")
             if u.nu == float('inf') and prToVR[u.pr] != None:
                 ### freeAPR >>>
-                # print(f"Calling freeAPR({u.pr}). The corresponding VR is {prToVR[u.pr]}")
+                # print(f"last use so calling freeAPR({u.pr}). The corresponding VR is {prToVR[u.pr]}")
                 vrToPR[prToVR[u.pr]] = None
                 prToVR[u.pr] = None
                 # print(f"prNU[x:{u.pr}] = nu:{float('inf')}")
@@ -231,8 +233,13 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
             d.pr, nextSpillLoc = getAPR(d.vr, d.nu, freePRStack, -1, reservePR, vrToSpillLoc, prToVR, prNU, vrToPR, nextSpillLoc, curr)
             # freeAPR if last def >>>>>>> 
             # definition never used?
+
+            # temp code
+            # if d.vr == 8:
+            #     print(f"found definition for vr8. d.nu:{d.nu}")
+
             if d.nu == float('inf'):    
-                # print(f"entered case of definition with no future use with vr={prToVR[d.pr]}, and pr={d.pr}")
+                # print(f"definition with no use for vr={prToVR[d.pr]}, so freeing pr={d.pr}")
                 vrToPR[prToVR[d.pr]] = None
                 prToVR[d.pr] = None
                 prNU[d.pr] = float('inf')
