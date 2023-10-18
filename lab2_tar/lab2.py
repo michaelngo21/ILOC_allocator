@@ -89,6 +89,7 @@ def rename(dummy: lab1.IR_Node, maxSR: int):
         index -= 1
         curr = curr.prev
 
+    # print(f"// maxLive is {maxLive}")
     return maxLive, vrName
     
 # # potentially consider in-lining?
@@ -99,7 +100,7 @@ def getAPR(vr: int, nu: int, freePRStack: [], marked: int, reservePR: int, vrToS
         # print(f"freePRStack contains free PRs: {freePRStack}")
         x = freePRStack.pop()
     else:
-        # print(f"freePRStack doesn't contain any free PRs: {freePRStack}")
+        print(f"time to spill spill with vr={vr} b/c freePRStack doesn't contain any free PRs: {freePRStack}")
         # pick an unmarked x to spill (based on whichever unmarked PR has latest next use)
         # print(f"prNU: {prNU}")
         x = prNU.index(max(prNU))   # potential optimization: don't require 2 passes for choosing PR with latest NU
@@ -135,26 +136,14 @@ def spill(pr, reservePR, vrToSpillLoc, nextSpillLoc, prToVR, vrToPR, curr:lab1.I
     if vrToSpillLoc.get(vr) == None:
         vrToSpillLoc[vr] = nextSpillLoc
         nextSpillLoc += 4   # NOTE: addresses are word-aligned, so must be multiples of 4
-        # >>>>>>
         # NOTE: since Python doesn't support method overloading, I include the first 4 arguments as formality, but they get tossed out
         loadI_node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.LOADI_LEX, pr1=vrToSpillLoc[vr], pr2=-1, pr3=reservePR)
         lab1.IR_Node.insertBefore(curr, loadI_node) # print(loadI_Node.printWithPRClean())
         # NOTE: recall that for store, what should go into pr3 should actually be stored in pr2 because it's a use. Printing the node with this structure leads to correct output
         store_node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.STORE_LEX, pr1=pr, pr2=reservePR, pr3=-1)
         lab1.IR_Node.insertBefore(curr, store_node)
-        # <<<<<<
-    else:
-        print(f"//found a 'clean' VR={vr} which maps to {vrToSpillLoc[vr]} while nextSpillLoc={nextSpillLoc}")
-    # # NOTE: since Python doesn't support method overloading, I include the first 4 arguments as formality, but they get tossed out
-    # loadI_node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.LOADI_LEX, pr1=vrToSpillLoc[vr], pr2=-1, pr3=reservePR)
-    # lab1.IR_Node.insertBefore(curr, loadI_node) # print(loadI_Node.printWithPRClean())
-    # # NOTE: recall that for store, what should go into pr3 should actually be stored in pr2 because it's a use. Printing the node with this structure leads to correct output
-    # store_node = lab1.IR_Node(lineno=-1, sr1=-1, sr2=-1, sr3=-1, isSpillOrRestore=True, opcode=lab1.STORE_LEX, pr1=pr, pr2=reservePR, pr3=-1)
-    # lab1.IR_Node.insertBefore(curr, store_node)
-    # # print(store_Node.printWithPRClean())
 
     vrToPR[vr] = None
-    # prToVR[pr] = None # POTENTIAL TEMP CODE
     # nextSpillLoc += 4   # NOTE: addresses are word-aligned, so must be multiples of 4
     return nextSpillLoc # need to remember next spillLoc
 
@@ -205,29 +194,6 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
             pr = vrToPR[u.vr]
             # print(f"pr: {pr}")
             if pr == None:
-                ### getAPR >>>
-                # if freePRStack:
-                #     print(f"freePRStack contains free PRs: {freePRStack}")
-                #     x = freePRStack.pop()
-                # else:
-                #     print(f"freePRStack doesn't contain any free PRs: {freePRStack}")
-                #     # pick an unmarked x to spill (based on whichever unmarked PR has latest next use)
-                #     x = prNU.index(max(prNU))   # potential optimization: don't require 2 passes for choosing PR with latest NU
-                #     print(f"x: {x}, prNU[x]: {prNU[x]}, prNU: {prNU}")
-                #     if x == marked:
-                #         tempCopy = list(prNU)
-                #         tempCopy.pop(x)
-                #         newx = tempCopy.index(max(tempCopy))    # again ^
-                #         if newx >= x:
-                #             newx += 1
-                #         x = newx                # potential optimization place ^
-                #     nextSpillLoc = spill(x, reservePR, vrToSpillLoc, nextSpillLoc, prToVR)
-                # vrToPR[u.vr] = x
-                # prToVR[x] = u.vr
-                # prNU[x] = u.nu 
-                #
-                # u.pr = x
-                ### getAPR <<<
                 # print(f"calling getAPR(u.vr={u.vr}, u.nu={u.nu})")
                 u.pr, nextSpillLoc = getAPR(u.vr, u.nu, freePRStack, marked, reservePR, vrToSpillLoc, prToVR, prNU, vrToPR, nextSpillLoc, curr)
                 # print(f"curr.lineno: {curr.lineno}")
@@ -247,12 +213,13 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
             # print(f"//potential freeAPR: if u.nu == float('inf') and prToVR[u.pr] != None : {u.nu == float('inf')} and {prToVR[u.pr] != None}")
             if u.nu == float('inf') and prToVR[u.pr] != None:
                 ### freeAPR >>>
-                # print(f"Calling freeAPR({u.pr})")
+                print(f"Calling freeAPR({u.pr}). The corresponding VR is {prToVR[u.pr]}")
                 vrToPR[prToVR[u.pr]] = None
                 prToVR[u.pr] = None
                 # print(f"prNU[x:{u.pr}] = nu:{float('inf')}")
                 prNU[u.pr] = float('inf')
                 freePRStack.append(u.pr)
+                print(f"freePRStack: {freePRStack}")
                 ### freeAPR <<<
             # TEMP CODE:
             # elif u.nu == float('inf'):
@@ -260,23 +227,14 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
             
         d = curr.op3    # allocate defintions
         if d.sr != -1:  
-            # d.pr = getAPR(stack, d.vr, d.nu)
-            ### getAPR >>>
-            # if freePRStack:
-            #     x = freePRStack.pop()
-            # else:
-            #     # pick an unmarked x to spill (based on whichever PR has latest next use)
-            #     x = prNU.index(max(prNU))   # potential optimization: don't require 2 passes for choosing PR with latest NU
-            #     nextSpillLoc = spill(x, reservePR, vrToSpillLoc, nextSpillLoc, prToVR)
-            # # print(f"vrToPR[d.vr={d.vr}], len(vrToPR): {len(vrToPR)}")
-            # vrToPR[d.vr] = x
-            # prToVR[x] = d.vr
-            # prNU[x] = d.nu 
-
-            # d.pr = x
-            ### getAPR <<<
             # print(f"calling getAPR(d.vr={d.vr}, d.nu={d.nu})")
             d.pr, nextSpillLoc = getAPR(d.vr, d.nu, freePRStack, -1, reservePR, vrToSpillLoc, prToVR, prNU, vrToPR, nextSpillLoc, curr)
+            # new code (buggy still!) >>>>>>> 
+            if d.nu == float('inf'):
+                vrToPR[prToVR[d.pr]] = None
+                prToVR[d.pr] = None
+            # <<<<<<<<<<
+                
 
         # print(curr.printWithPRClean())
 
@@ -342,7 +300,6 @@ def main():
                 exit(0)
     
     # if filename can't be opened, lab1 will print error message and exit cleanly
-    # TODO: remove "-r"
     dummy, maxSR = lab1.parse(["lab1.py", filename]) # dummy is the head of the linked list 
 
     # RENAMING ALGORITHM
