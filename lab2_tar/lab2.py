@@ -223,8 +223,13 @@ def allocate(dummy: lab1.IR_Node, k: int, maxVR: int, maxLive: int):
             if i == 2:
                 u = curr.op2
 
-            # If this is the last use OR is rematerializable
-            if (u.nu == float('inf')  or u.vr in vrToLoadIConst) and prToVR[u.pr] != None:
+            # check whether the use is either a constant or non-existent, in which case, checking last use doesn't apply
+            if u.sr == -1 or u.isConstant:
+                continue
+
+            # print(f"u.vr in vrToLoadIConst={u.vr in vrToLoadIConst} and prToVR[u.pr={u.pr}]")
+            # If this is the last use OR is rematerializable. NOTE: the prToVR[u.pr] != None checks whether it's already been freed (e.g., 2 uses are same VR and 1st has been freed)
+            if (u.nu == float('inf') or u.vr in vrToLoadIConst) and prToVR[u.pr] != None:
                 # print(f"last use (or rematerialization) so calling freeAPR({u.pr}). The corresponding VR is {prToVR[u.pr]}")
                 freeAPR(u.pr, freePRStack, vrToPR, prToVR, prNU)
                 # print(f"freePRStack: {freePRStack}")
