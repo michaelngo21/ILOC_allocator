@@ -1,26 +1,19 @@
 import lab1
 import sys
-import os
 
 helpMessage = """
-COMP 412, Reference Allocator (lab 2)
+COMP 412, Allocator (lab 2)
 Command Syntax:
-        ./412alloc k filename [-c] [-h] [-l] [-s] [-v]
+        ./412alloc k filename <flag>
 
 Required arguments:
         k        specifies the number of registers available to the allocator
         filename  is the pathname (absolute or relative) to the input file
 
 Optional flags:
-        -c        turns of comments in output
         -h        prints this message
-        -m        reports MaxLive value to stderr
-        -s        initializes undefined uses to zero
-        -v        prints out the version number
-        -w        suppress warning messages
-
-        -l        Opens log file "./Log" and starts logging.
-                  (This flag is additive. More '-l's means more log info.)
+        -m        reports MaxLive value to stdout
+        -x        prints the renamed list before register allocation
 """
 
 # note: the computation of maxLive overshoots it. In reality, I think load operations may kill the register being used, meaning they should be removed from the live set.
@@ -322,7 +315,7 @@ def main():
             currnode = currnode.next
     
     if mFlag:
-        print("maxLive:", maxLive)
+        print("//maxLive:", maxLive)
 
     # ALLOCATOR ALGORITHM
     allocate(dummy, k, maxVR, maxLive)
